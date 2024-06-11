@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co-Pilot Like Text Completion</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+  }
+  .container {
+    max-width: 600px;
+    width: 100%;
+    padding: 20px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    border-radius: 8px;
+  }
+  #textbox {
+    width: 200px;
+    padding: 10px;
+    margin-bottom: 20px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+  }
+  #suggestions {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  #suggestions li {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+  }
+  #suggestions li:last-child {
+    border-bottom: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container" style="background-color: #f6f6f6;">
+  <h2 style="color: #ff5733; text-align: center;">Co-Pilot Like Text Completion</h2>
+  <ul id="suggestions"></ul>
+</div>
+
+<input type="text" id="textbox" placeholder="Start typing..." style="background-color: #b3d9ff; color: #333;">
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const textbox = document.getElementById('textbox');
+  const suggestionsList = document.getElementById('suggestions');
+
+  async function getSuggestions(query) {
+    const url = `https://api-inference.huggingface.co/models/gpt2/completion`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer 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',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        'inputs': query,
+        'options': {
+          'max_new_tokens': 10
+        }
+      })
+    });
+
+    const data = await response.json();
+    return data['choices'][0]['text'];
+  }
+
+  async function showSuggestions() {
+    const query = textbox.value.trim();
+    if (query.length === 0) {
+      suggestionsList.innerHTML = '';
+      return;
+    }
+
+    const completion = await getSuggestions(query);
+    suggestionsList.innerHTML = `<li>${completion}</li>`;
+  }
+
+  textbox.addEventListener('input', showSuggestions);
+});
+</script>
+
+</body>
+</html>

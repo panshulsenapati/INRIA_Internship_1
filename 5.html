@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co-Pilot Like Text Completion</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+    color: #333;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  .container {
+    max-width: 600px;
+    width: 100%;
+    padding: 20px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    border-radius: 8px;
+    position: relative;
+  }
+  #textbox {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    background-color: #e0f7fa;
+  }
+  #suggestions {
+    list-style-type: none;
+    padding: 0;
+    margin: 10px 0 0 0;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #ffffff;
+  }
+  #suggestions li {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+  }
+  #suggestions li:hover {
+    background-color: #f1f1f1;
+  }
+  #history {
+    list-style-type: none;
+    padding: 0;
+    margin: 20px 0 0 0;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  #history li {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    background-color: #ffcccb;
+  }
+  #clear-history, #toggle-theme {
+    margin: 10px 5px;
+    padding: 10px;
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #clear-history {
+    background-color: #ff5722;
+    color: #fff;
+  }
+  #toggle-theme {
+    background-color: #2196f3;
+    color: #fff;
+  }
+  .loading {
+    display: none;
+    margin: 10px 0;
+    text-align: center;
+  }
+  .loading.show {
+    display: block;
+  }
+  .error {
+    color: red;
+    margin: 10px 0;
+  }
+  .dark-mode {
+    background-color: #333;
+    color: #fff;
+  }
+  .dark-mode #textbox {
+    background-color: #444;
+    border: 1px solid #555;
+  }
+  .dark-mode #suggestions {
+    background-color: #555;
+    border: 1px solid #666;
+  }
+  .dark-mode #suggestions li {
+    border-bottom: 1px solid #666;
+  }
+  .dark-mode #suggestions li:hover {
+    background-color: #666;
+  }
+  .dark-mode #history li {
+    background-color: #777;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2 style="color: #ff5733; text-align: center;">Co-Pilot Like Text Completion</h2>
+  <button id="clear-history">Clear History</button>
+  <button id="toggle-theme">Toggle Dark/Light Mode</button>
+  <ul id="history"></ul>
+  <input type="text" id="textbox" placeholder="Start typing...">
+  <ul id="suggestions"></ul>
+  <div class="loading" id="loading">Loading...</div>
+  <div class="error" id="error"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const textbox = document.getElementById('textbox');
+  const suggestionsList = document.getElementById('suggestions');
+  const historyList = document.getElementById('history');
+  const clearHistoryBtn = document.getElementById('clear-history');
+  const toggleThemeBtn = document.getElementById('toggle-theme');
+  const loadingIndicator = document.getElementById('loading');
+  const errorDisplay = document.getElementById('error');
+  let darkMode = false;
+
+  async function getSuggestions(query) {
+    const url = `https://api-inference.huggingface.co/models/gpt2`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer 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',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          'inputs': query,
+          'options': {
+            'max_length': 50,
+            'num_return_sequences': 5 // Adjust for multiple suggestions
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      return data.map(item => item.generated_text);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      errorDisplay.textContent = 'Error fetching suggestions. Please try again.';
+      return [];
+    }
+  }
+
+  function showSuggestions(suggestions) {
+    suggestionsList.innerHTML = '';
+    suggestions.forEach(suggestion => {
+      const li = document.createElement('li');
+      li.textContent = suggestion;
+      li.addEventListener('click', () => acceptSuggestion(suggestion));
+      suggestionsList.appendChild(li);
+    });
+  }
+
+  function acceptSuggestion(suggestion) {
+    textbox.value = suggestion;
+    addHistory(suggestion);
+    suggestionsList.innerHTML = '';
+  }
+
+  function addHistory(entry) {
+    const li = document.createElement('li');
+    li.textContent = entry;
+    historyList.appendChild(li);
+  }
+
+  async function handleInput() {
+    const query = textbox.value.trim();
+    if (query.length === 0) {
+      suggestionsList.innerHTML = '';
+      return;
+    }
+
+    errorDisplay.textContent = '';
+    loadingIndicator.classList.add('show');
+    const suggestions = await getSuggestions(query);
+    loadingIndicator.classList.remove('show');
+    showSuggestions(suggestions);
+  }
+
+  function clearHistory() {
+    historyList.innerHTML = '';
+  }
+
+  function toggleTheme() {
+    darkMode = !darkMode;
+    document.body.classList.toggle('dark-mode', darkMode);
+  }
+
+  textbox.addEventListener('input', handleInput);
+  textbox.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && suggestionsList.children.length > 0) {
+      acceptSuggestion(suggestionsList.children[0].textContent);
+    }
+  });
+  clearHistoryBtn.addEventListener('click', clearHistory);
+  toggleThemeBtn.addEventListener('click', toggleTheme);
+});
+</script>
+
+</body>
+</html>

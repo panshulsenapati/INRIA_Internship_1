@@ -1,0 +1,163 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Co-Pilot AutoComplete</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f9;
+        }
+        .container {
+            width: 600px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .input-container {
+            position: relative;
+        }
+        #textbox {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        #suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .suggestion {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestion:hover, .suggestion.active {
+            background-color: #f4f4f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Co-Pilot AutoComplete</h1>
+        <div class="input-container">
+            <textarea id="textbox" placeholder="Start typing..."></textarea>
+            <div id="suggestions"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const textbox = document.getElementById('textbox');
+            const suggestionsBox = document.getElementById('suggestions');
+
+            textbox.addEventListener('input', async (event) => {
+                const query = event.target.value;
+                if (query.length > 0) {
+                    const suggestions = await getSuggestions(query);
+                    showSuggestions(suggestions);
+                } else {
+                    suggestionsBox.innerHTML = '';
+                }
+            });
+
+            textbox.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    navigateSuggestions(event.key);
+                } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    selectSuggestion();
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!suggestionsBox.contains(event.target) && event.target !== textbox) {
+                    suggestionsBox.innerHTML = '';
+                }
+            });
+        });
+
+        async function query(data) {
+	const response = await fetch(
+		"https://api-inference.huggingface.co/models/openai-community/gpt2",
+		{
+			headers: { Authorization: "Bearer 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" },
+			method: "POST",
+			body: JSON.stringify(data),
+		}
+	);
+	const result = await response.json();
+	return result;
+}
+
+query({"inputs": "Can you please let us know more details about your "}).then((response) => {
+	console.log(JSON.stringify(response));
+});
+
+query({"inputs": "Can you please let us know more details about your "}).then((response) => {
+	console.log(JSON.stringify(response));
+});
+        function showSuggestions(suggestions) {
+            const suggestionsBox = document.getElementById('suggestions');
+            suggestionsBox.innerHTML = '';
+            suggestions.forEach(suggestion => {
+                const suggestionElement = document.createElement('div');
+                suggestionElement.className = 'suggestion';
+                suggestionElement.textContent = suggestion;
+                suggestionElement.addEventListener('click', () => {
+                    document.getElementById('textbox').value = suggestion;
+                    suggestionsBox.innerHTML = '';
+                });
+                suggestionsBox.appendChild(suggestionElement);
+            });
+        }
+
+        function navigateSuggestions(direction) {
+            const suggestionsBox = document.getElementById('suggestions');
+            const active = suggestionsBox.querySelector('.active');
+            let nextActive;
+            if (direction === 'ArrowDown') {
+                nextActive = active ? active.nextElementSibling : suggestionsBox.firstChild;
+            } else {
+                nextActive = active ? active.previousElementSibling : suggestionsBox.lastChild;
+            }
+            if (active) {
+                active.classList.remove('active');
+            }
+            if (nextActive) {
+                nextActive.classList.add('active');
+            }
+        }
+
+        function selectSuggestion() {
+            const suggestionsBox = document.getElementById('suggestions');
+            const active = suggestionsBox.querySelector('.active');
+            if (active) {
+                document.getElementById('textbox').value = active.textContent;
+                suggestionsBox.innerHTML = '';
+            }
+        }
+    </script>
+</body>
+</html>
