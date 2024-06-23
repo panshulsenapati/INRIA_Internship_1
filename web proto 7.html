@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Co-Pilot Like Text Completion</title>
+  <style>
+    /* same styles as before */
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2 style="color: #ff5733; text-align: center;">Co-Pilot Like Text Completion</h2>
+    <button id="clear-history">Clear History</button>
+    <button id="toggle-theme">Toggle Dark/Light Mode</button>
+    <ul id="history"></ul>
+    <input type="text" id="textbox" placeholder="Start typing...">
+    <ul id="suggestions"></ul>
+    <div class="loading" id="loading">Loading...</div>
+    <div class="error" id="error"></div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const textbox = document.getElementById('textbox');
+      const suggestionsList = document.getElementById('suggestions');
+      const historyList = document.getElementById('history');
+      const clearHistoryBtn = document.getElementById('clear-history');
+      const toggleThemeBtn = document.getElementById('toggle-theme');
+      const loadingIndicator = document.getElementById('loading');
+      const errorDisplay = document.getElementById('error');
+      let darkMode = false;
+
+      async function getSuggestions(query) {
+        const url = 'https://api.openai.com/v1/engines/text-curie-001/completions';
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer sk-proj-C0wNzSJvv711xBL99PhZT3BlbkFJFJ2GzwaQhe3lYuGNoaMB', // Replace with your OpenAI API key
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              'prompt': query,
+              'ax_tokens': 50,
+              'temperature': 0.5
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+
+          const data = await response.json();
+          return data.choices.map(choice => choice.text).filter(text => text.trim()!== '') || [];
+        } catch (error) {
+          console.error('Error fetching suggestions:', error);
+          errorDisplay.textContent = 'Error fetching suggestions. Please try again.';
+          return [];
+        }
+      }
+
+      function showSuggestions(suggestions) {
+        suggestionsList.innerHTML = '';
+        suggestions.forEach(suggestion => {
+          const li = document.createElement('li');
+          li.textContent = suggestion;
+          li.addEventListener('click', () => acceptSuggestion(suggestion));
+          suggestionsList.appendChild(li);
+        });
+      }
+
+      function acceptSuggestion(suggestion) {
+        textbox.value = suggestion;
+        addHistory(suggestion);
+        suggestionsList.innerHTML = '';
+      }
+
+      function addHistory(entry) {
+        const li = document.createElement('li');
+        li.textContent = entry;
+        historyList.appendChild(li);
+      }
+
+      async function handleInput() {
+        const query = textbox.value.trim();
+        if (query.length === 0) {
+          suggestionsList.innerHTML = '';
+          return;
+        }
+
+        errorDisplay.textContent = '';
+        loadingIndicator.classList.add('show');
+        const suggestions = await getSuggestions(query);
+        loadingIndicator.classList.remove('show');
+        showSuggestions(suggestions);
+      }
+
+      function clearHistory() {
+        historyList.innerHTML = '';
+      }
+
+      function toggleTheme() {
+        darkMode =!darkMode;
+        document.body.classList.toggle('dark-mode', darkMode);
+      }
+
+      textbox.addEventListener('input', handleInput);
+      textbox.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && suggestionsList.children.length > 0) {
+          acceptSuggestion(suggestionsList.children[0].textContent);
+        }
+      });
+      clearHistoryBtn.addEventListener('click', clearHistory);
+      toggleThemeBtn.addEventListener('click', toggleTheme);
+    });
+  </script>
+
+</body>
+</html>
