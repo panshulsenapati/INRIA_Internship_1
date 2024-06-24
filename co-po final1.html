@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Suggestion Box</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .textbox, .outputbox { width: 100%; padding: 10px; margin: 10px 0; }
+        .suggestions { list-style-type: none; padding: 0; }
+        .suggestions li { padding: 10px; background: #f0f0f0; margin-bottom: 5px; cursor: pointer; }
+        .suggestions li:hover { background: #e0e0e0; }
+        .loading { display: none; text-align: center; }
+        .loading.show { display: block; }
+        .history { margin-top: 20px; }
+        .history li { background: #f9f9f9; padding: 5px; margin-bottom: 5px; }
+        .dark-mode { background-color: #333; color: #fff; }
+        .dark-mode .textbox, .dark-mode .outputbox { background: #555; color: #fff; }
+        .dark-mode .suggestions li { background: #444; }
+        .dark-mode .suggestions li:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <input type="text" class="textbox" placeholder="Type here...">
+        <div class="loading">Loading...</div>
+        <ul class="suggestions"></ul>
+        <div class="outputbox"></div>
+        <button id="clearHistoryBtn">Clear History</button>
+        <button id="toggleThemeBtn">Toggle Theme</button>
+        <ul class="history"></ul>
+    </div>
+    <script>
+        const openaiApiKey = 'sk-proj-gFEgcaFMzrlf4wGMH4i4T3BlbkFJhJsMay2gHNFluPbxXeWT';
+        const huggingfaceApiKey = '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';
+        const cohereApiKey = 'k6QbjoZLmu00Ptd5daB3qRP1iVPug825qUCTgNkX';
+        const ai21ApiKey = 'bugsq93MdbmVcoe1q9hRG8qnpHHX2abI';
+        const gptneoApiKey = 'your-gptneo-api-key';
+
+        const textbox = document.querySelector('.textbox');
+        const outputbox = document.querySelector('.outputbox');
+        const suggestionsList = document.querySelector('.suggestions');
+        const loadingIndicator = document.querySelector('.loading');
+        const historyList = document.querySelector('.history');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+        let darkMode = false;
+
+        async function fetchSuggestions(api, query, url, headers, body) {
+            try {
+                const response = await fetch(url, { method: 'POST', headers, body });
+                if (!response.ok) throw new Error(`Error from ${api}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Error fetching from ${api}:`, error);
+                return null;
+            }
+        }
+
+        async function getSuggestions(query) {
+            const openaiData = await fetchSuggestions(
+                'OpenAI',
+                query,
+                'https://api.openai.com/v1/engines/davinci-codex/completions',
+                { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: query, max_tokens: 50, n: 5 })
+            );
+
+            if (openaiData) return openaiData.choices.map(choice => choice.text.trim());
+
+            const huggingfaceData = await fetchSuggestions(
+                'HuggingFace',
+                query,
+                'https://api-inference.huggingface.co/models/gpt2',
+                { 'Authorization': `Bearer ${huggingfaceApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ inputs: query, parameters: { max_length: 50, num_return_sequences: 5 } })
+            );
+
+            if (huggingfaceData) return huggingfaceData.map(output => output.generated_text.trim());
+
+            const cohereData = await fetchSuggestions(
+                'Cohere',
+                query,
+                'https://api.cohere.ai/generate',
+                { 'Authorization': `Bearer ${cohereApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: query, max_tokens: 50, num_generations: 5 })
+            );
+
+            if (cohereData) return cohereData.generations.map(gen => gen.text.trim());
+
+            const ai21Data = await fetchSuggestions(
+                'AI21',
+                query,
+                'https://api.ai21.com/studio/v1/j1-large/complete',
+                { 'Authorization': `Bearer ${ai21ApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: query, maxTokens: 50, numResults: 5 })
+            );
+
+            if (ai21Data) return ai21Data.completions.map(comp => comp.data.text.trim());
+
+            const gptneoData = await fetchSuggestions(
+                'GPT-Neo',
+                query,
+                'https://api.v1.gpt-neo.com/generate',
+                { 'Authorization': `Bearer ${gptneoApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ context: query, max_length: 50, num_completions: 5 })
+            );
+
+            if (gptneoData) return gptneoData.completions.map(comp => comp.text.trim());
+
+            return [];
+        }
+
+        function showSuggestions(suggestions) {
+            suggestionsList.innerHTML = '';
+            suggestions.forEach(suggestion => {
+                const li = document.createElement('li');
+                li.textContent = suggestion;
+                li.addEventListener('click', () => acceptSuggestion(suggestion));
+                suggestionsList.appendChild(li);
+            });
+        }
+
+        function acceptSuggestion(suggestion) {
+            textbox.value = suggestion;
+            outputbox.textContent = suggestion;
+            addHistory(suggestion);
+            suggestionsList.innerHTML = '';
+        }
+
+        function addHistory(entry) {
+            const li = document.createElement('li');
+            li.textContent = entry;
+            historyList.appendChild(li);
+        }
+
+        async function handleInput() {
+            const query = textbox.value.trim();
+            if (query.length === 0) {
+                suggestionsList.innerHTML = '';
+                return;
+            }
+
+            loadingIndicator.classList.add('show');
+            const suggestions = await getSuggestions(query);
+            loadingIndicator.classList.remove('show');
+            showSuggestions(suggestions);
+        }
+
+        function clearHistory() {
+            historyList.innerHTML = '';
+        }
+
+        function toggleTheme() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+        }
+
+        textbox.addEventListener('input', handleInput);
+        textbox.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && suggestionsList.children.length > 0) {
+                acceptSuggestion(suggestionsList.children[0].textContent);
+            }
+        });
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        toggleThemeBtn.addEventListener('click', toggleTheme);
+    </script>
+</body>
+</html>
