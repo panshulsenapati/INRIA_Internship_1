@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Suggestion Box</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .textbox, .outputbox { width: 100%; padding: 10px; margin: 10px 0; position: relative; }
+        .history { margin-top: 20px; }
+        .history li { background: #f9f9f9; padding: 5px; margin-bottom: 5px; }
+        .dark-mode { background-color: #333; color: #fff; }
+        .dark-mode .textbox, .dark-mode .outputbox { background: #555; color: #fff; }
+        .suggestion {
+            color: gray;
+            position: absolute;
+            pointer-events: none;
+            user-select: none;
+            padding-left: 10px;
+            margin-top: -28px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Container Start -->
+        <div class="main-container">
+            <cib-drop-target></cib-drop-target>
+
+            <div class="input-container">
+                <div class="input-row">
+                    <cib-text-input alignment="center" chat-type="consumer" mode="conversation" product="bing" serp-slot="none" speech-state="hidden"></cib-text-input>
+                </div>
+                
+                <cib-attachment-list product="bing"></cib-attachment-list>
+
+                <div class="bottom-controls">
+                    <div class="bottom-controls-container">
+                        <div class="bottom-left-controls">
+                            <div id="camera-container" class="control camera">
+                                <cib-flyout class="visual-search" id="vs-flyout" headeroverlapadjustment="" role="dialog" background="">
+                                    <cib-visual-search product="bing" videoheight=""></cib-visual-search>
+                                </cib-flyout>
+                                <button is="cib-button" aria-haspopup="true" aria-controls="vs-flyout" appearance="subtle" description="Add an image" aria-label="Add an image to search" aria-expanded="false" type="button" description-position="top">
+                                    <svg-icon type="image-add" size="20" aria-hidden="true" style="--icon-size: 20px;"></svg-icon>
+                                </button>
+                            </div>
+                            <div class="divider"></div>
+                        </div>
+                        <div class="bottom-right-controls">
+                            <div class="control mic">
+                                <button is="cib-button" appearance="subtle" aria-pressed="false" description="Use microphone" aria-label="Use microphone" type="button" description-position="top"></button>
+                                <div class="controls-audio">
+                                    <cib-speech-icon id="cib-speech-icon" class="speech-icon" aria-hidden="true" state="hidden" product="bing" lite=""></cib-speech-icon>
+                                </div>
+                            </div>
+                            <div class="control submit">
+                                <div class="autosend-animation"></div>
+                                <button is="cib-button" appearance="subtle" description="Submit" aria-label="Submit" aria-hidden="false" disabled="" type="button" description-position="top">
+                                    <svg-icon type="send" size="20" aria-hidden="true" style="--icon-size: 20px;"></svg-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Main Container End -->
+
+        <input type="text" class="textbox" placeholder="Type here...">
+        <div class="suggestion"></div>
+        <div class="outputbox"></div>
+        <button id="clearHistoryBtn">Clear History</button>
+        <button id="toggleThemeBtn">Toggle Theme</button>
+        <ul class="history"></ul>
+    </div>
+
+    <script>
+        const openaiApiKey = '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';
+        const huggingfaceApiKey = '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';
+        const cohereApiKey = 'k6QbjoZLmu00Ptd5daB3qRP1iVPug825qUCTgNkX';
+        const ai21ApiKey = 'bugsq93MdbmVcoe1q9hRG8qnpHHX2abI';
+        const gptneoApiKey = 'your-gptneo-api-key';
+
+        const textbox = document.querySelector('.textbox');
+        const outputbox = document.querySelector('.outputbox');
+        const suggestionBox = document.querySelector('.suggestion');
+        const historyList = document.querySelector('.history');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+        let darkMode = false;
+        let currentSuggestion = '';
+
+        async function fetchSuggestions(api, query, url, headers, body) {
+            try {
+                const response = await fetch(url, { method: 'POST', headers, body });
+                if (!response.ok) throw new Error(`Error from ${api}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Error fetching from ${api}:`, error);
+                return null;
+            }
+        }
+
+        async function getSuggestions(query) {
+            const maxWords = 3;
+            const openaiData = await fetchSuggestions(
+                'OpenAI',
+                query,
+                'https://api.openai.com/v1/engines/davinci-codex/completions',
+                { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: `Provide a short suggestion for: ${query}`, max_tokens: maxWords * 2, n: 1, stop: ["\n"] })
+            );
+
+            if (openaiData) {
+                const suggestion = openaiData.choices[0].text.trim();
+                return suggestion.split(/\s+/).slice(0, maxWords).join(' ');
+            }
+
+            const huggingfaceData = await fetchSuggestions(
+                'HuggingFace',
+                query,
+                'https://api-inference.huggingface.co/models/gpt2',
+                { 'Authorization': `Bearer ${huggingfaceApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ inputs: query, parameters: { max_length: maxWords * 2, num_return_sequences: 1 } })
+            );
+
+            if (huggingfaceData) {
+                const suggestion = huggingfaceData[0].generated_text.trim();
+                return suggestion.split(/\s+/).slice(0, maxWords).join(' ');
+            }
+
+            const cohereData = await fetchSuggestions(
+                'Cohere',
+                query,
+                'https://api.cohere.ai/generate',
+                { 'Authorization': `Bearer ${cohereApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: `Provide a short suggestion for: ${query}`, max_tokens: maxWords * 2, num_generations: 1 })
+            );
+
+            if (cohereData) {
+                const suggestion = cohereData.generations[0].text.trim();
+                return suggestion.split(/\s+/).slice(0, maxWords).join(' ');
+            }
+
+            const ai21Data = await fetchSuggestions(
+                'AI21',
+                query,
+                'https://api.ai21.com/studio/v1/j1-large/complete',
+                { 'Authorization': `Bearer ${ai21ApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ prompt: `Provide a short suggestion for: ${query}`, maxTokens: maxWords * 2, numResults: 1 })
+            );
+
+            if (ai21Data) {
+                const suggestion = ai21Data.completions[0].data.text.trim();
+                return suggestion.split(/\s+/).slice(0, maxWords).join(' ');
+            }
+
+            const gptneoData = await fetchSuggestions(
+                'GPT-Neo',
+                query,
+                'https://api.v1.gpt-neo.com/generate',
+                { 'Authorization': `Bearer ${gptneoApiKey}`, 'Content-Type': 'application/json' },
+                JSON.stringify({ context: query, max_length: maxWords * 2, num_completions: 1 })
+            );
+
+            if (gptneoData) {
+                const suggestion = gptneoData.completions[0].text.trim();
+                return suggestion.split(/\s+/).slice(0, maxWords).join(' ');
+            }
+
+            return '';
+        }
+
+        function showSuggestion(suggestion) {
+            suggestionBox.textContent = suggestion;
+        }
+
+        function clearSuggestion() {
+            suggestionBox.textContent = '';
+            currentSuggestion = '';
+        }
+
+        async function handleInput() {
+            const query = textbox.value.trim();
+            if (query.length === 0) {
+                clearSuggestion();
+                return;
+            }
+
+            const suggestion = await getSuggestions(query);
+            if (suggestion) {
+                currentSuggestion = suggestion;
+                showSuggestion(suggestion);
+            } else {
+                clearSuggestion();
+            }
+        }
+
+        function acceptSuggestion() {
+            if (currentSuggestion) {
+                textbox.value += currentSuggestion;
+                addHistory(currentSuggestion);
+                clearSuggestion();
+            }
+        }
+
+        function addHistory(entry) {
+            const li = document.createElement('li');
+            li.textContent = entry;
+            historyList.appendChild(li);
+        }
+
+        function clearHistory() {
+            historyList.innerHTML = '';
+        }
+
+        function toggleTheme() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+        }
+
+        textbox.addEventListener('input', handleInput);
+        textbox.addEventListener('keydown', function (e) {
+            if (e.key === 'Tab' && currentSuggestion) {
+                e.preventDefault();
+                acceptSuggestion();
+            }
+        });
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        toggleThemeBtn.addEventListener('click', toggleTheme);
+    </script>
+</body>
+</html>
