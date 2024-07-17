@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dummy Copilot</title>
+    <style>
+        .textbox {
+            width: 100%;
+            height: 100px;
+        }
+        .suggestions {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .suggestion-item {
+            padding: 5px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover, .suggestion-item.selected {
+            background-color: #e2e2e2;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="textbox" class="textbox" placeholder="Type here..."></textarea>
+    <div id="suggestions" class="suggestions" style="display: none;"></div>
+
+    <script>
+        const suggestionsBox = document.getElementById('suggestions');
+        const textBox = document.getElementById('textbox');
+
+        // Static suggestions
+        const staticSuggestions = [
+            "what is your name?....My name is Panshul.",
+            "what is your age?....I am 20 years old.",
+            "what is your gender?....I am a male.",
+            "where are you going",
+            "This is a suggestion.",
+            "Here is another suggestion.",
+            "You might consider this.",
+            "How about this suggestion?",
+            "Consider exploring this path.",
+            "Think about the implications.",
+            "What if we approached it differently?",
+            "Let's try a new perspective.",
+            "How does this alternative sound?",
+            "Imagine if we changed our strategy.",
+            "Think about the broader context.",
+            "Could we integrate this idea?",
+            "What are the potential benefits?",
+            "Explore this solution.",
+            "What are the risks involved?",
+            "Let's analyze this possibility."
+        ];
+
+        let currentIndex = -1;
+
+        // Function to update suggestions
+        function updateSuggestions() {
+            const inputText = textBox.value;
+            if (inputText.trim() === "") {
+                suggestionsBox.style.display = "none";
+                return;
+            }
+
+            suggestionsBox.innerHTML = '';
+            staticSuggestions.forEach((suggestion, index) => {
+                if (suggestion.toLowerCase().includes(inputText.toLowerCase())) {
+                    const suggestionItem = document.createElement('div');
+                    suggestionItem.textContent = suggestion;
+                    suggestionItem.classList.add('suggestion-item');
+                    suggestionItem.dataset.index = index;
+                    suggestionsBox.appendChild(suggestionItem);
+                }
+            });
+
+            if (suggestionsBox.childNodes.length > 0) {
+                suggestionsBox.style.display = "block";
+            } else {
+                suggestionsBox.style.display = "none";
+            }
+        }
+
+        // Handle keydown events for navigation and selection
+        textBox.addEventListener('keydown', (event) => {
+            const suggestionItems = document.querySelectorAll('.suggestion-item');
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                currentIndex = (currentIndex + 1) % suggestionItems.length;
+                highlightSuggestion(suggestionItems);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                currentIndex = (currentIndex - 1 + suggestionItems.length) % suggestionItems.length;
+                highlightSuggestion(suggestionItems);
+            } else if (event.key === 'Tab' || event.key === 'Enter') {
+                if (currentIndex >= 0 && suggestionItems[currentIndex]) {
+                    event.preventDefault();
+                    selectSuggestion(suggestionItems[currentIndex].textContent);
+                }
+            }
+        });
+
+        // Handle input events for suggestions
+        textBox.addEventListener('input', updateSuggestions);
+
+        // Highlight the current suggestion
+        function highlightSuggestion(items) {
+            items.forEach(item => item.classList.remove('selected'));
+            if (items[currentIndex]) {
+                items[currentIndex].classList.add('selected');
+            }
+        }
+
+        // Select the suggestion
+        function selectSuggestion(suggestion) {
+            textBox.value = suggestion;
+            suggestionsBox.style.display = "none";
+            currentIndex = -1;
+        }
+
+        // Initial suggestion
+        updateSuggestions();
+    </script>
+</body>
+</html>
